@@ -1,5 +1,6 @@
 package org.base.java.lang;
 
+import org.base.java.annotation.Native;
 import org.base.java.io.Serializable;
 import org.base.jdk.internal.HotSpotIntrinsicCandidate;
 
@@ -128,7 +129,73 @@ public final class String
         this(bytes, 0, bytes.length, charset);
     }
 
+    public String(byte bytes[], int offset, int length) {
+        checkBoundsOffCount(offset, length, bytes.length);
+        StringCoding.Result ret = StringCoding.decode(bytes, offset, length);
+    }
 
+    public String(byte[] bytes) {
+        this(bytes, 0, bytes.length);
+    }
+
+    public String(StringBuffer buffer) {
+        this(buffer.toString());
+    }
+
+    public String(StringBuilder builder) {
+        this(builder, null);
+    }
+
+    public int length() {
+        return value.length >> coder();
+    }
+
+    public boolean isEmpty() {
+        return value.length == 0;
+    }
+
+    public char charAt(int index) {
+        if (isLatin1()) {
+            return StringLatin1.charAt(value, index);
+        } else {
+            return StringUTF16.charAt(value, index);
+        }
+    }
+
+    public int codePointAt(int index) {
+        if (isLatin1()) {
+            checkIndex(index, value.length);
+            return value[index] & 0xff;
+        }
+        int length = value.length >> 1;
+        checkIndex(index, length);
+        return StringUTF16.codePointAt(value, index, length);
+    }
+
+    public int codePointBefore(int index) {
+        int i = index - 1;
+        if (i < 0 || i >= length()) {
+            throw new StringIndexOutOfBoundsException(index);
+        }
+        if (isLatin1()) {
+            return (value[i] & 0xff);
+        }
+        return StringUTF16.codePointBefore(value, index);
+    }
+
+
+    private boolean isLatin1() {
+        return COMPACT_STRINGS && coder == LATIN1;
+    }
+
+    @Native static final byte LATIN1 = 0;
+    @Native static final byte UTF16 = 1;
+
+    static void checkIndex(int index, int length) {
+        if (index < 0 || index >= length) {
+            throw new StringIndexOutOfBoundsException("index " + index + ",length " + length);
+        }
+    }
 
     static void checkBoundsOffCount(int offset, int count, int length) {
         if (offset < 0 || count < 0 || offset > length - count) {
